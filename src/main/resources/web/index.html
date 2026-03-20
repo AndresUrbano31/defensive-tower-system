@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Torres Defensivas - Decorator Pattern</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        h1 {
+            color: #4a5568;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+
+        .pattern-info {
+            background: #f7fafc;
+            border-left: 4px solid #4299e1;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .panel h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4299e1;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 153, 225, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+
+        .tower-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .tower-item {
+            background: #f8f9fa;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+
+        .tower-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .tower-name {
+            font-weight: bold;
+            color: #2d3748;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .tower-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .stat {
+            font-size: 0.9em;
+            color: #4a5568;
+        }
+
+        .tower-description {
+            color: #718096;
+            font-size: 0.9em;
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .upgrade-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .upgrade-btn {
+            background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .upgrade-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        .success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+
+        .info {
+            background: #bee3f8;
+            color: #2c5282;
+            border: 1px solid #90cdf4;
+        }
+
+        .attack-log {
+            background: #1a202c;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+
+        .decorator-info {
+            background: #fef5e7;
+            border: 1px solid #f9e79f;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .decorator-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .decorator-list li {
+            background: white;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏰 Sistema de Torres Defensivas</h1>
+            <div class="subtitle">Patrón de Diseño Decorator - Java Implementation</div>
+            <div class="pattern-info">
+                <strong>📋 Patrón Decorator:</strong> Permite agregar funcionalidades dinámicamente a objetos sin modificar su estructura. 
+                Cada mejora es un decorador que envuelve la torre base.
+            </div>
+        </header>
+
+        <div class="main-content">
+            <section class="panel">
+                <h2>🎮 Crear Torre</h2>
+                <div class="form-group">
+                    <label for="towerName">Nombre de la Torre:</label>
+                    <input type="text" id="towerName" placeholder="Ej: Torre Alpha">
+                </div>
+                <div class="form-group">
+                    <label for="towerType">Tipo de Torre:</label>
+                    <select id="towerType">
+                        <option value="basic">Básica (100 oro)</option>
+                        <option value="sniper">Francotirador (200 oro)</option>
+                        <option value="cannon">Cañón (300 oro)</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="createTower()">🏗️ Crear Torre</button>
+                
+                <div class="decorator-info">
+                    <h3>🎨 Mejoras Disponibles (Decorators):</h3>
+                    <ul class="decorator-list">
+                        <li>🔥 Rapid Fire (+2 fire rate, +20 oro)</li>
+                        <li>❄️ Freeze Shield (Congela enemigos 3s, +30 oro)</li>
+                        <li>💰 Gold Generator (+5 oro/ataque, +50 oro)</li>
+                        <li>🛡️ Defensive Shield (+50 defensa, +10 range, +40 oro)</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2>🏗️ Torres Activas</h2>
+                <div id="towerList" class="tower-list">
+                    <div class="info">No hay torres creadas aún. ¡Crea tu primera torre!</div>
+                </div>
+                <button class="btn" onclick="refreshTowers()">🔄 Actualizar</button>
+            </section>
+        </div>
+
+        <div id="messageArea"></div>
+    </div>
+
+    <script>
+        let currentTowers = [];
+
+        function showMessage(message, type = 'info') {
+            const messageArea = document.getElementById('messageArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = message;
+            messageArea.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        async function createTower() {
+            const name = document.getElementById('towerName').value.trim();
+            const type = document.getElementById('towerType').value;
+            
+            if (!name) {
+                showMessage('❌ Por favor ingresa un nombre para la torre', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/tower/create?type=${type}&name=${encodeURIComponent(name)}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(`✅ ${result.message}`, 'success');
+                    document.getElementById('towerName').value = '';
+                    refreshTowers();
+                } else {
+                    showMessage(`❌ ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Error al crear torre: ${error.message}`, 'error');
+            }
+        }
+
+        async function upgradeTower(towerId, upgradeType) {
+            try {
+                const response = await fetch(`/api/tower/upgrade?id=${towerId}&upgrade=${upgradeType}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(`✅ ${result.message}`, 'success');
+                    refreshTowers();
+                } else {
+                    showMessage(`❌ ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Error al mejorar torre: ${error.message}`, 'error');
+            }
+        }
+
+        async function attackWithTower(towerId) {
+            try {
+                const response = await fetch(`/api/tower/attack?id=${towerId}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const attackLog = document.createElement('div');
+                    attackLog.className = 'attack-log';
+                    attackLog.innerHTML = `<strong>🎯 Ataque Ejecutado:</strong><br>${result.attackLog.replace(/\\n/g, '<br>')}`;
+                    
+                    const messageArea = document.getElementById('messageArea');
+                    messageArea.appendChild(attackLog);
+                    
+                    showMessage(`⚔️ ${result.message}`, 'success');
+                } else {
+                    showMessage(`❌ ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Error al atacar: ${error.message}`, 'error');
+            }
+        }
+
+        async function refreshTowers() {
+            try {
+                const response = await fetch('/api/towers');
+                const data = await response.json();
+                
+                currentTowers = data.towers;
+                displayTowers();
+            } catch (error) {
+                showMessage(`❌ Error al cargar torres: ${error.message}`, 'error');
+            }
+        }
+
+        function displayTowers() {
+            const towerList = document.getElementById('towerList');
+            
+            if (currentTowers.length === 0) {
+                towerList.innerHTML = '<div class="info">No hay torres creadas aún. ¡Crea tu primera torre!</div>';
+                return;
+            }
+            
+            towerList.innerHTML = currentTowers.map(tower => `
+                <div class="tower-item">
+                    <div class="tower-name">🏰 ${tower.name}</div>
+                    <div class="tower-stats">
+                        <div class="stat">⚔️ Daño: ${tower.damage}</div>
+                        <div class="stat">🔥 Frecuencia: ${tower.fireRate}</div>
+                        <div class="stat">📏 Rango: ${tower.range}</div>
+                        <div class="stat">💰 Costo: ${tower.cost} oro</div>
+                    </div>
+                    <div class="tower-description">${tower.description}</div>
+                    <div class="upgrade-buttons">
+                        <button class="btn btn-warning" onclick="attackWithTower(${tower.id})">⚔️ Atacar</button>
+                        <button class="upgrade-btn" onclick="upgradeTower(${tower.id}, 'rapidfire')">🔥 Rapid Fire</button>
+                        <button class="upgrade-btn" onclick="upgradeTower(${tower.id}, 'freezeshield')">❄️ Freeze Shield</button>
+                        <button class="upgrade-btn" onclick="upgradeTower(${tower.id}, 'goldgenerator')">💰 Gold Generator</button>
+                        <button class="upgrade-btn" onclick="upgradeTower(${tower.id}, 'defensiveshield')">🛡️ Defensive Shield</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load towers on page load
+        window.onload = function() {
+            refreshTowers();
+        };
+    </script>
+</body>
+</html>
