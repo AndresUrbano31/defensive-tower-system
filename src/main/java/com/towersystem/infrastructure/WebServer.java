@@ -101,7 +101,7 @@ public class WebServer {
     }
     
     /**
-     * Handler for creating a new tower
+     * Handler for creating a new tower with player support
      */
     private class CreateTowerHandler implements HttpHandler {
         @Override
@@ -110,8 +110,9 @@ public class WebServer {
                 Map<String, String> params = parseQueryParams(exchange.getRequestURI().getQuery());
                 String towerType = params.get("type");
                 String towerName = params.get("name");
+                int playerId = Integer.parseInt(params.getOrDefault("player", "1"));
                 
-                String response = towerService.createTower(towerType, towerName);
+                String response = towerService.createTower(towerType, towerName, playerId);
                 
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.getBytes().length);
@@ -124,7 +125,7 @@ public class WebServer {
     }
     
     /**
-     * Handler for upgrading a tower
+     * Handler for upgrading a tower with player support
      */
     private class UpgradeTowerHandler implements HttpHandler {
         @Override
@@ -133,8 +134,9 @@ public class WebServer {
                 Map<String, String> params = parseQueryParams(exchange.getRequestURI().getQuery());
                 int towerId = Integer.parseInt(params.get("id"));
                 String upgradeType = params.get("upgrade");
+                int playerId = Integer.parseInt(params.getOrDefault("player", "1"));
                 
-                String response = towerService.upgradeTower(towerId, upgradeType);
+                String response = towerService.upgradeTower(towerId, upgradeType, playerId);
                 
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.getBytes().length);
@@ -147,7 +149,7 @@ public class WebServer {
     }
     
     /**
-     * Handler for tower attack simulation
+     * Handler for tower attack simulation with player support
      */
     private class AttackTowerHandler implements HttpHandler {
         @Override
@@ -155,8 +157,9 @@ public class WebServer {
             if ("POST".equals(exchange.getRequestMethod())) {
                 Map<String, String> params = parseQueryParams(exchange.getRequestURI().getQuery());
                 int towerId = Integer.parseInt(params.get("id"));
+                int playerId = Integer.parseInt(params.getOrDefault("player", "1"));
                 
-                String response = towerService.attackWithTower(towerId);
+                String response = towerService.attackWithTower(towerId, playerId);
                 
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.getBytes().length);

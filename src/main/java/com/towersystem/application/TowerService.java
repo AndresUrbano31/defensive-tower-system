@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Service layer for tower management operations
- * Implements business logic and coordinates tower operations
+ * Implements business logic and coordinates tower operations for two players
  * 
  * Following SOLID principles:
  * - Single Responsibility: Handles tower business logic
@@ -18,24 +18,36 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class TowerService {
     
-    private final Map<Integer, Tower> towers = new HashMap<>();
+    private final Map<Integer, Tower> player1Towers = new HashMap<>();
+    private final Map<Integer, Tower> player2Towers = new HashMap<>();
     private final AtomicInteger nextId = new AtomicInteger(1);
+    private final AtomicInteger player1NextId = new AtomicInteger(1);
+    private final AtomicInteger player2NextId = new AtomicInteger(1);
     
     /**
-     * Creates a new tower
+     * Creates a new tower for a specific player
      * @param towerType type of tower to create
      * @param towerName name of the tower
+     * @param playerId player ID (1 or 2)
      * @return JSON response with tower creation result
      */
-    public String createTower(String towerType, String towerName) {
+    public String createTower(String towerType, String towerName, int playerId) {
         try {
             Tower tower = createBaseTower(towerType, towerName);
-            int id = nextId.getAndIncrement();
-            towers.put(id, tower);
+            int id;
+            Map<Integer, Tower> playerTowers = playerId == 1 ? player1Towers : player2Towers;
+            
+            if (playerId == 1) {
+                id = player1NextId.getAndIncrement();
+            } else {
+                id = player2NextId.getAndIncrement() + 1000; // Offset for player 2
+            }
+            
+            playerTowers.put(id, tower);
             
             return String.format(
-                "{\"success\": true, \"towerId\": %d, \"message\": \"Tower '%s' created successfully\", \"tower\": {\"id\": %d, \"name\": \"%s\", \"description\": \"%s\", \"cost\": %d}}",
-                id, towerName, id, tower.getName(), tower.getDescription().replace("\"", "\\\""), tower.getCost()
+                "{\"success\": true, \"towerId\": %d, \"playerId\": %d, \"message\": \"Tower '%s' created for Player %d\", \"tower\": {\"id\": %d, \"playerId\": %d, \"name\": \"%s\", \"description\": \"%s\", \"cost\": %d}}",
+                id, playerId, towerName, playerId, id, playerId, tower.getName(), tower.getDescription().replace("\"", "\\\""), tower.getCost()
             );
         } catch (Exception e) {
             return String.format("{\"success\": false, \"message\": \"Error creating tower: %s\"}", e.getMessage());
@@ -43,24 +55,27 @@ public class TowerService {
     }
     
     /**
-     * Upgrades an existing tower with a decorator
+     * Upgrades an existing tower with a decorator for a specific player
      * @param towerId ID of tower to upgrade
      * @param upgradeType type of upgrade to apply
+     * @param playerId player ID (1 or 2)
      * @return JSON response with upgrade result
      */
-    public String upgradeTower(int towerId, String upgradeType) {
-        Tower tower = towers.get(towerId);
+    public String upgradeTower(int towerId, String upgradeType, int playerId) {
+        Map<Integer, Tower> playerTowers = playerId == 1 ? player1Towers : player2Towers;
+        Tower tower = playerTowers.get(towerId);
+        
         if (tower == null) {
             return "{\"success\": false, \"message\": \"Tower not found\"}";
         }
         
         try {
             Tower upgradedTower = applyUpgrade(tower, upgradeType);
-            towers.put(towerId, upgradedTower);
+            playerTowers.put(towerId, upgradedTower);
             
             return String.format(
-                "{\"success\": true, \"towerId\": %d, \"message\": \"Tower upgraded with %s\", \"tower\": {\"id\": %d, \"name\": \"%s\", \"description\": \"%s\", \"cost\": %d, \"damage\": %d, \"fireRate\": %d, \"range\": %d}}",
-                towerId, upgradeType, towerId, upgradedTower.getName(), 
+                "{\"success\": true, \"towerId\": %d, \"playerId\": %d, \"message\": \"Player %d tower upgraded with %s\", \"tower\": {\"id\": %d, \"playerId\": %d, \"name\": \"%s\", \"description\": \"%s\", \"cost\": %d, \"damage\": %d, \"fireRate\": %d, \"range\": %d}}",
+                towerId, playerId, playerId, upgradeType, towerId, playerId, upgradedTower.getName(), 
                 upgradedTower.getDescription().replace("\"", "\\\""), 
                 upgradedTower.getCost(), upgradedTower.getDamage(), 
                 upgradedTower.getFireRate(), upgradedTower.getRange()
@@ -71,19 +86,22 @@ public class TowerService {
     }
     
     /**
-     * Simulates tower attack
+     * Simulates tower attack for a specific player
      * @param towerId ID of tower to attack with
+     * @param playerId player ID (1 or 2)
      * @return JSON response with attack result
      */
-    public String attackWithTower(int towerId) {
-        Tower tower = towers.get(towerId);
+    public String attackWithTower(int towerId, int playerId) {
+        Map<Integer, Tower> playerTowers = playerId == 1 ? player1Towers : player2Towers;
+        Tower tower = playerTowers.get(towerId);
+        
         if (tower == null) {
             return "{\"success\": false, \"message\": \"Tower not found\"}";
         }
         
         // Capture attack output for response
         StringBuilder attackLog = new StringBuilder();
-        attackLog.append("Tower ").append(tower.getName()).append(" attacks!\\n");
+        attackLog.append("Player ").append(playerId).append(" Tower ").append(tower.getName()).append(" attacks!\\n");
         attackLog.append("Damage: ").append(tower.getDamage()).append("\\n");
         attackLog.append("Fire Rate: ").append(tower.getFireRate()).append("\\n");
         attackLog.append("Range: ").append(tower.getRange()).append("\\n");
@@ -92,21 +110,23 @@ public class TowerService {
         tower.attack();
         
         return String.format(
-            "{\"success\": true, \"towerId\": %d, \"message\": \"Attack executed\", \"attackLog\": \"%s\"}",
-            towerId, attackLog.toString()
+            "{\"success\": true, \"towerId\": %d, \"playerId\": %d, \"message\": \"Attack executed\", \"attackLog\": \"%s\"}",
+            towerId, playerId, attackLog.toString()
         );
     }
     
     /**
-     * Gets all towers as JSON
-     * @return JSON string with all towers
+     * Gets all towers from both players as JSON
+     * @return JSON string with all towers including player IDs
      */
     public String getAllTowersJson() {
         StringBuilder json = new StringBuilder();
         json.append("{\"towers\": [");
         
         boolean first = true;
-        for (Map.Entry<Integer, Tower> entry : towers.entrySet()) {
+        
+        // Add Player 1 towers
+        for (Map.Entry<Integer, Tower> entry : player1Towers.entrySet()) {
             if (!first) {
                 json.append(",");
             }
@@ -115,6 +135,27 @@ public class TowerService {
             Tower tower = entry.getValue();
             json.append("{");
             json.append("\"id\": ").append(entry.getKey()).append(",");
+            json.append("\"playerId\": 1,");
+            json.append("\"name\": \"").append(tower.getName()).append("\",");
+            json.append("\"description\": \"").append(tower.getDescription().replace("\"", "\\\"")).append("\",");
+            json.append("\"cost\": ").append(tower.getCost()).append(",");
+            json.append("\"damage\": ").append(tower.getDamage()).append(",");
+            json.append("\"fireRate\": ").append(tower.getFireRate()).append(",");
+            json.append("\"range\": ").append(tower.getRange());
+            json.append("}");
+        }
+        
+        // Add Player 2 towers
+        for (Map.Entry<Integer, Tower> entry : player2Towers.entrySet()) {
+            if (!first) {
+                json.append(",");
+            }
+            first = false;
+            
+            Tower tower = entry.getValue();
+            json.append("{");
+            json.append("\"id\": ").append(entry.getKey()).append(",");
+            json.append("\"playerId\": 2,");
             json.append("\"name\": \"").append(tower.getName()).append("\",");
             json.append("\"description\": \"").append(tower.getDescription().replace("\"", "\\\"")).append("\",");
             json.append("\"cost\": ").append(tower.getCost()).append(",");
