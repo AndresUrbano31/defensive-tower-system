@@ -102,9 +102,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 16px;
             cursor: pointer;
             transition: all 0.3s;
+            min-height: 40px;
+            position: relative;
         }
 
         .grid-cell:hover {
@@ -409,6 +411,7 @@
                 <div class="battle-controls">
                     <button class="btn btn-warning" onclick="startBattle()">⚔️ Iniciar Batalla</button>
                     <button class="btn btn-danger" onclick="resetBattle()">🔄 Reiniciar Batalla</button>
+                    <button class="btn" onclick="debugBattlefield()">🔍 Debug Campo</button>
                 </div>
                 <div class="battle-status" id="battleStatus">
                     <div class="info">Esperando jugadores...</div>
@@ -442,37 +445,60 @@
     </div>
 
     <script>
-        let player1Towers = [];
-        let player2Towers = [];
-        let battlefieldGrid = [];
-        let currentTurn = 1;
-        let battleInProgress = false;
+        // Game state management
+        const gameState = {
+            player1Towers: [],
+            player2Towers: [],
+            battlefieldGrid: [],
+            currentTurn: 1,
+            battleInProgress: false,
+            selectedTower: null,
+            selectedPlayer: null
+        };
 
         // Initialize battlefield grid
         function initializeBattlefield() {
             const gridElement = document.getElementById('battlefieldGrid');
+            if (!gridElement) {
+                console.error('Battlefield grid element not found');
+                return;
+            }
+            
             gridElement.innerHTML = '';
-            battlefieldGrid = [];
+            gameState.battlefieldGrid = [];
+            
+            console.log('Initializing battlefield grid...');
             
             for (let row = 0; row < 8; row++) {
-                battlefieldGrid[row] = [];
+                gameState.battlefieldGrid[row] = [];
                 for (let col = 0; col < 10; col++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
                     cell.dataset.row = row;
                     cell.dataset.col = col;
-                    cell.onclick = () => placeTower(row, col);
+                    cell.onclick = () => handleCellClick(row, col);
                     
-                    // Mark battle zones
+                    // Mark territories and battle zones
                     if (col >= 3 && col <= 6) {
                         cell.classList.add('battle-zone');
                         cell.innerHTML = '⚔️';
+                        cell.title = 'Zona de Batalla';
+                    } else if (col < 3) {
+                        cell.innerHTML = '';
+                        cell.title = 'Territorio Jugador 1 - Click para colocar torre';
+                        cell.style.background = '#2d3748';
+                    } else {
+                        cell.innerHTML = '';
+                        cell.title = 'Territorio Jugador 2 - Click para colocar torre';
+                        cell.style.background = '#2d3748';
                     }
                     
                     gridElement.appendChild(cell);
-                    battlefieldGrid[row][col] = null;
+                    gameState.battlefieldGrid[row][col] = null;
                 }
             }
+            
+            console.log('Battlefield grid initialized with', gameState.battlefieldGrid.length, 'rows');
         }
 
         function showMessage(message, type = 'info') {
@@ -506,9 +532,27 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    // Add tower to local game state
+                    const newTower = {
+                        id: result.towerId,
+                        playerId: playerId,
+                        name: name,
+                        type: type,
+                        damage: type === 'basic' ? 10 : type === 'sniper' ? 25 : 50,
+                        fireRate: type === 'basic' ? 1 : 0,
+                        range: type === 'basic' ? 50 : type === 'sniper' ? 100 : 30,
+                        cost: type === 'basic' ? 100 : type === 'sniper' ? 200 : 300
+                    };
+                    
+                    if (playerId === 1) {
+                        gameState.player1Towers.push(newTower);
+                    } else {
+                        gameState.player2Towers.push(newTower);
+                    }
+                    
                     showMessage(`✅ Jugador ${playerId}: ${result.message}`, 'success');
                     nameInput.value = '';
-                    refreshTowers();
+                    displayTowers();
                 } else {
                     showMessage(`❌ Jugador ${playerId}: ${result.message}`, 'error');
                 }
@@ -561,15 +605,11 @@
             }
         }
 
-        function placeTower(row, col) {
-            if (battleInProgress) {
-                showMessage('⚔️ No se pueden colocar torres durante la batalla', 'error');
-                return;
-            }
+        function handleCellClick(row, col) {
+            console.log(`Cell clicked at (${row}, ${col})`);
             
-            // Check if cell is occupied
-            if (battlefieldGrid[row][col] !== null) {
-                showMessage('❌ Esta celda ya está ocupada', 'error');
+            if (gameState.battleInProgress) {
+                showMessage('⚔️ No se pueden realizar acciones durante la batalla', 'error');
                 return;
             }
             
@@ -581,8 +621,14 @@
                 return;
             }
             
+            // Check if cell is occupied
+            if (gameState.battlefieldGrid[row][col] !== null) {
+                showMessage('❌ Esta celda ya está ocupada', 'error');
+                return;
+            }
+            
             // Get latest tower from the player
-            const towers = player === 1 ? player1Towers : player2Towers;
+            const towers = player === 1 ? gameState.player1Towers : gameState.player2Towers;
             if (towers.length === 0) {
                 showMessage(`❌ Jugador ${player}: No tienes torres creadas`, 'error');
                 return;
@@ -591,43 +637,106 @@
             const latestTower = towers[towers.length - 1];
             
             // Place tower on grid
-            battlefieldGrid[row][col] = {
+            gameState.battlefieldGrid[row][col] = {
                 playerId: player,
+                towerId: latestTower.id,
                 tower: latestTower,
-                health: 100 + latestTower.cost
+                health: 100 + latestTower.cost,
+                row: row,
+                col: col
             };
             
             // Update visual
             const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-            cell.classList.add(`player${player}-tower`);
-            cell.innerHTML = player === 1 ? '🔴' : '🔵';
-            cell.title = `${latestTower.name} (HP: ${battlefieldGrid[row][col].health})`;
+            if (cell) {
+                cell.classList.add(`player${player}-tower`);
+                cell.innerHTML = player === 1 ? '🏰' : '🏯';
+                cell.title = `${latestTower.name} (HP: ${gameState.battlefieldGrid[row][col].health})`;
+                cell.style.background = player === 1 ? '#fc8181' : '#63b3ed';
+            }
             
             showMessage(`✅ Jugador ${player}: Torre colocada en posición (${row}, ${col})`, 'success');
         }
 
-        async function startBattle() {
-            if (battleInProgress) {
+        function debugBattlefield() {
+            console.log('=== DEBUG BATTLEFIELD ===');
+            console.log('Game state:', gameState);
+            
+            let player1Count = 0;
+            let player2Count = 0;
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 10; col++) {
+                    if (gameState.battlefieldGrid[row][col] !== null) {
+                        console.log(`Tower at (${row}, ${col}):`, gameState.battlefieldGrid[row][col]);
+                        if (gameState.battlefieldGrid[row][col].playerId === 1) {
+                            player1Count++;
+                        } else {
+                            player2Count++;
+                        }
+                    }
+                }
+            }
+            
+            console.log(`Player 1 towers on grid: ${player1Count}`);
+            console.log(`Player 2 towers on grid: ${player2Count}`);
+            
+            showMessage(`🔍 Debug: J1=${player1Count}, J2=${player2Count}`, 'info');
+        }
+
+        function startBattle() {
+            console.log('Starting battle...');
+            console.log('Game state:', gameState);
+            
+            if (gameState.battleInProgress) {
                 showMessage('⚔️ La batalla ya está en curso', 'error');
                 return;
             }
             
-            // Check if both players have towers
-            if (player1Towers.length === 0 || player2Towers.length === 0) {
-                showMessage('❌ Ambos jugadores deben tener al menos una torre', 'error');
+            // Check if both players have towers placed
+            let player1HasTowers = false;
+            let player2HasTowers = false;
+            let totalTowers = 0;
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 10; col++) {
+                    if (gameState.battlefieldGrid[row][col] !== null) {
+                        totalTowers++;
+                        console.log(`Found tower at (${row}, ${col}):`, gameState.battlefieldGrid[row][col]);
+                        if (gameState.battlefieldGrid[row][col].playerId === 1) {
+                            player1HasTowers = true;
+                        } else if (gameState.battlefieldGrid[row][col].playerId === 2) {
+                            player2HasTowers = true;
+                        }
+                    }
+                }
+            }
+            
+            console.log('Player 1 has towers:', player1HasTowers);
+            console.log('Player 2 has towers:', player2HasTowers);
+            console.log('Total towers found:', totalTowers);
+            
+            if (!player1HasTowers || !player2HasTowers) {
+                if (!player1HasTowers) {
+                    showMessage('❌ Jugador 1 debe tener al menos una torre colocada', 'error');
+                } else if (!player2HasTowers) {
+                    showMessage('❌ Jugador 2 debe tener al menos una torre colocada', 'error');
+                } else {
+                    showMessage('❌ Ambos jugadores deben tener al menos una torre colocada', 'error');
+                }
                 return;
             }
             
-            battleInProgress = true;
-            currentTurn = 1;
+            gameState.battleInProgress = true;
+            gameState.currentTurn = 1;
             
             updateBattleStatus('⚔️ ¡Batalla iniciada! Turno del Jugador 1');
             showMessage('⚔️ ¡La batalla ha comenzado!', 'success');
         }
 
         function resetBattle() {
-            battleInProgress = false;
-            currentTurn = 1;
+            gameState.battleInProgress = false;
+            gameState.currentTurn = 1;
             initializeBattlefield();
             updateBattleStatus('🔄 Batalla reiniciada. Esperando jugadores...');
             showMessage('🔄 La batalla ha sido reiniciada', 'info');
@@ -638,53 +747,64 @@
             statusElement.innerHTML = `<div class="info">${message}</div>`;
         }
 
-        async function refreshTowers() {
-            try {
-                const response = await fetch('/api/towers');
-                const data = await response.json();
-                
-                player1Towers = data.towers.filter(t => t.playerId === 1);
-                player2Towers = data.towers.filter(t => t.playerId === 2);
-                
-                displayTowers(1, player1Towers);
-                displayTowers(2, player2Towers);
-            } catch (error) {
-                showMessage(`❌ Error al cargar torres: ${error.message}`, 'error');
-            }
-        }
-
-        function displayTowers(playerId, towers) {
-            const towerList = document.getElementById(`towerList${playerId}`);
-            
-            if (towers.length === 0) {
-                towerList.innerHTML = '<div class="info">No hay torres creadas aún</div>';
-                return;
-            }
-            
-            towerList.innerHTML = towers.map(tower => `
-                <div class="tower-item">
-                    <div class="tower-name">🏰 ${tower.name}</div>
-                    <div class="tower-stats">
-                        <div class="stat">⚔️ Daño: ${tower.damage}</div>
-                        <div class="stat">🔥 Frecuencia: ${tower.fireRate}</div>
-                        <div class="stat">📏 Rango: ${tower.range}</div>
-                        <div class="stat">💰 Costo: ${tower.cost} oro</div>
+        function displayTowers() {
+            // Display Player 1 towers
+            const towerList1 = document.getElementById('towerList1');
+            if (gameState.player1Towers.length === 0) {
+                towerList1.innerHTML = '<div class="info">No hay torres creadas aún</div>';
+            } else {
+                towerList1.innerHTML = gameState.player1Towers.map(tower => `
+                    <div class="tower-item">
+                        <div class="tower-name">🏰 ${tower.name}</div>
+                        <div class="tower-stats">
+                            <div class="stat">⚔️ Daño: ${tower.damage}</div>
+                            <div class="stat">🔥 Frecuencia: ${tower.fireRate}</div>
+                            <div class="stat">📏 Rango: ${tower.range}</div>
+                            <div class="stat">💰 Costo: ${tower.cost} oro</div>
+                        </div>
+                        <div class="upgrade-buttons">
+                            <button class="btn btn-warning" onclick="attackWithTower(1, ${tower.id})">⚔️ Atacar</button>
+                            <button class="upgrade-btn" onclick="upgradeTower(1, ${tower.id}, 'rapidfire')">🔥 Rapid Fire</button>
+                            <button class="upgrade-btn" onclick="upgradeTower(1, ${tower.id}, 'freezeshield')">❄️ Freeze Shield</button>
+                            <button class="upgrade-btn" onclick="upgradeTower(1, ${tower.id}, 'goldgenerator')">💰 Gold Generator</button>
+                            <button class="upgrade-btn" onclick="upgradeTower(1, ${tower.id}, 'defensiveshield')">🛡️ Defensive Shield</button>
+                        </div>
                     </div>
-                    <div class="upgrade-buttons">
-                        <button class="btn btn-warning" onclick="attackWithTower(${playerId}, ${tower.id})">⚔️ Atacar</button>
-                        <button class="upgrade-btn" onclick="upgradeTower(${playerId}, ${tower.id}, 'rapidfire')">🔥 Rapid Fire</button>
-                        <button class="upgrade-btn" onclick="upgradeTower(${playerId}, ${tower.id}, 'freezeshield')">❄️ Freeze Shield</button>
-                        <button class="upgrade-btn" onclick="upgradeTower(${playerId}, ${tower.id}, 'goldgenerator')">💰 Gold Generator</button>
-                        <button class="upgrade-btn" onclick="upgradeTower(${playerId}, ${tower.id}, 'defensiveshield')">🛡️ Defensive Shield</button>
+                `).join('');
+            }
+            
+            // Display Player 2 towers
+            const towerList2 = document.getElementById('towerList2');
+            if (gameState.player2Towers.length === 0) {
+                towerList2.innerHTML = '<div class="info">No hay torres creadas aún</div>';
+            } else {
+                towerList2.innerHTML = gameState.player2Towers.map(tower => `
+                    <div class="tower-item">
+                        <div class="tower-name">🏰 ${tower.name}</div>
+                        <div class="tower-stats">
+                            <div class="stat">⚔️ Daño: ${tower.damage}</div>
+                            <div class="stat">🔥 Frecuencia: ${tower.fireRate}</div>
+                            <div class="stat">📏 Rango: ${tower.range}</div>
+                            <div class="stat">💰 Costo: ${tower.cost} oro</div>
+                        </div>
+                        <div class="upgrade-buttons">
+                            <button class="btn btn-warning" onclick="attackWithTower(2, ${tower.id})">⚔️ Atacar</button>
+                            <button class="upgrade-btn" onclick="upgradeTower(2, ${tower.id}, 'rapidfire')">🔥 Rapid Fire</button>
+                            <button class="upgrade-btn" onclick="upgradeTower(2, ${tower.id}, 'freezeshield')">❄️ Freeze Shield</button>
+                            <button class="upgrade-btn" onclick="upgradeTower(2, ${tower.id}, 'goldgenerator')">💰 Gold Generator</button>
+                            <button class="upgrade-btn" onclick="upgradeTower(2, ${tower.id}, 'defensiveshield')">🛡️ Defensive Shield</button>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
         }
 
         // Initialize on page load
         window.onload = function() {
+            console.log('Initializing game...');
             initializeBattlefield();
-            refreshTowers();
+            displayTowers();
+            console.log('Game initialized successfully');
         };
     </script>
 </body>
